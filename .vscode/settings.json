@@ -1,0 +1,5 @@
+{
+  "pylint.path": [
+    "./.venv/bin/python3 -m pylint"
+  ]
+}
