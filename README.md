@@ -17,6 +17,12 @@ Might also have to add it to pyproject.toml manually.  lol.
 ### Setup
 
 ```bash
+bin/shell
+```
+
+Which actually does this:
+
+```bash
 pipenv shell # vscode might do this automatically? maybe?
 ```
 
