@@ -1,6 +1,7 @@
 import pandas as pd
 from functools import reduce
 
+
 def __validate(*prices):
   for ticker_prices in prices:
     if 'ticker' not in ticker_prices:
