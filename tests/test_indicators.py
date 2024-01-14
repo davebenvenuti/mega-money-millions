@@ -7,7 +7,6 @@ from tests import BTC_PICKLE_PATH
 class TestIndicators(unittest.TestCase):
   def setUp(self):
     self.btc_prices = pd.read_pickle(BTC_PICKLE_PATH)
-    pass
 
   def test_add_sma(self):
     add_sma(self.btc_prices, 45)
