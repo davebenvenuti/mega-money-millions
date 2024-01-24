@@ -1,7 +1,7 @@
 import unittest
 from mega_money_millions.backtester import run_backtest
 from mega_money_millions.dateutils import days_ago, start_of_day_utc, parse_date
-from mega_money_millions.indicators import add_crossover, add_sma
+from mega_money_millions.indicators.singleasset import add_crossover, add_sma
 from mega_money_millions.priceutils import combine_prices
 from tests import load_btc_pickle, load_eth_pickle, BTC_SMA45_CROSSUPS, BTC_SMA45_CROSSDOWNS
 

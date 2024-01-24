@@ -1,6 +1,6 @@
 import unittest
 import pandas as pd
-from mega_money_millions.indicators import add_sma, add_filter, add_ranking, add_roc, add_crossover
+from mega_money_millions.indicators.singleasset import add_sma, add_roc, add_crossover
 from tests import BTC_PICKLE_PATH, BTC_SMA45_CROSSUPS, BTC_SMA45_CROSSDOWNS
 
 
