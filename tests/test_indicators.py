@@ -1,7 +1,7 @@
 import unittest
 import pandas as pd
-from mega_money_millions.indicators import add_sma, add_filter, add_ranking, add_roc
-from tests import BTC_PICKLE_PATH
+from mega_money_millions.indicators import add_sma, add_filter, add_ranking, add_roc, add_crossover
+from tests import BTC_PICKLE_PATH, BTC_SMA45_CROSSUPS, BTC_SMA45_CROSSDOWNS
 
 
 class TestIndicators(unittest.TestCase):
@@ -35,3 +35,15 @@ class TestIndicators(unittest.TestCase):
 
   def test_add_ranking(self):
     pass
+
+  def test_add_crossover(self):
+    add_sma(self.btc_prices, 45)
+    add_sma(self.btc_prices, 90)
+
+    add_crossover(self.btc_prices, 'SMA45', 'SMA90', 'SMACrossUp', 'SMACrossDown')
+
+    crossups = self.btc_prices.loc[self.btc_prices['SMACrossUp']].index.tolist()
+    crossdowns = self.btc_prices.loc[self.btc_prices['SMACrossDown']].index.tolist()
+
+    self.assertEqual(BTC_SMA45_CROSSUPS, crossups)
+    self.assertEqual(BTC_SMA45_CROSSDOWNS, crossdowns)

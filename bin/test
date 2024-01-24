@@ -1,3 +1,9 @@
 #!/usr/bin/env bash
 
-python3 -m unittest discover $@
+if [[ "$1" != "" ]]; then
+    echo "Running tests in $1"
+    python3 -m unittest $@
+    exit
+else
+  python3 -m unittest discover
+fi

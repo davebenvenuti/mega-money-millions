@@ -6,6 +6,12 @@ def now():
   return datetime.datetime.now()
 
 
+def parse_date(date_str, format=None):
+  if format is None:
+    format = '%Y-%m-%d'
+  return datetime.datetime.strptime(date_str, format)
+
+
 def start_of_day(date):
   return date.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -41,7 +47,6 @@ class DayOfWeek(Enum):
 
 def __generate_next_day_at_midnight_fn(target_day=DayOfWeek.MONDAY):
   def __fn(start_at=now()):
-    # import pdb; pdb.set_trace()
     utc_day = datetime.datetime.utcfromtimestamp(
         start_at.timestamp()).replace(
         hour=0, minute=0, second=0, microsecond=0)
@@ -69,7 +74,6 @@ next_sunday_midnight = __generate_next_day_at_midnight_fn(DayOfWeek.SUNDAY)
 def __generate_all_days_since_fn(target_day=DayOfWeek.MONDAY):
   def __fn(start_at, end_at=now()):
     next_day_at_midnight = __generate_next_day_at_midnight_fn(target_day)
-    # import pdb; pdb.set_trace()
 
     current = next_day_at_midnight(start_at)
     while current < end_at:
@@ -90,3 +94,10 @@ all_thursdays_since = __generate_all_days_since_fn(DayOfWeek.THURSDAY)
 all_fridays_since = __generate_all_days_since_fn(DayOfWeek.FRIDAY)
 all_saturdays_since = __generate_all_days_since_fn(DayOfWeek.SATURDAY)
 all_sundays_since = __generate_all_days_since_fn(DayOfWeek.SUNDAY)
+
+
+def all_days_since(start_at, end_at=now()):
+  current = start_at
+  while current <= end_at:
+    yield current
+    current += datetime.timedelta(days=1)

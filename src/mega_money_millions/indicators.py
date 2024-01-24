@@ -31,8 +31,15 @@ def unique_dates(prices):
 # Expected prices Dataframe for _ALL_ assets.  Mutates prices.
 def add_filter(prices, on_stat, to_stat, threshold_column='SMA45'):
   for date in unique_dates(prices):
-    btc = prices.loc[(date, on_stat)]
-    prices.loc[date, to_stat] = btc['close'] >= btc[threshold_column]
+    values_for_date = prices.loc[(date, on_stat)]
+    prices.loc[date, to_stat] = values_for_date['close'] >= values_for_date[threshold_column]
+
+
+# Expected prices Dataframe for a _SINGLE_ asset.  Mutates prices.
+def add_crossover(prices, on_stat1, on_stat2, to_stat1, to_stat2):
+  previous = prices.shift(1)
+  prices[to_stat1] = (previous[on_stat1] > previous[on_stat2]) & (prices[on_stat1] < prices[on_stat2])
+  prices[to_stat2] = (previous[on_stat1] < previous[on_stat2]) & (prices[on_stat1] > prices[on_stat2])
 
 
 def to_entries_and_exits(prices, boolean_column_name, *, regime_filter=None):
