@@ -109,3 +109,14 @@ class TestPortfolio(unittest.TestCase):
     self.coinbase_portfolio.sell('BTC', '2023-12-24', 45000, 0.125)
 
     self.assertEqual(self.coinbase_portfolio.cash(), 7543.25)
+
+  def test_max_gain(self):
+    self.portfolio.initial_cash = 10000000
+
+    self.portfolio.buy('BTC', '2023-12-23', 50000, 0.25)
+    self.portfolio.sell('BTC', '2023-12-24', 25000, 0.125)
+    self.portfolio.sell('BTC', '2023-12-24', 25000, 0.124)
+    self.portfolio.buy('BTC', '2023-12-25', 50000, 0.25)
+    self.portfolio.sell('BTC', '2023-12-26', 12500, 0.125)
+
+    self.assertEqual(self.portfolio.max_gain(), 2812.5)
