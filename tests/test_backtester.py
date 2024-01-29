@@ -34,10 +34,10 @@ class TestBacktester(unittest.TestCase):
 
     portfolio = run_backtest(self.prices, 10000, days_ago(365 * 5, end_at), end_at, on_tick=__on_tick)
 
-    self.assertEqual(20803.781399999993, portfolio.cash())
+    self.assertEqual(20803.7814, portfolio.cash())
 
-    buy_dates = portfolio.positions.query('ticker == "BTC" & quantity > 0')['time'].tolist()
-    sell_dates = portfolio.positions.query('ticker == "BTC" & quantity < 0')['time'].tolist()
+    buy_dates = portfolio.transactions.query('ticker == "BTC" & quantity > 0')['time'].tolist()
+    sell_dates = portfolio.transactions.query('ticker == "BTC" & quantity < 0')['time'].tolist()
 
     crossups = list(filter(lambda date: date.year >= 2019, BTC_SMA45_CROSSUPS))
     crossdowns = list(filter(lambda date: date.year >= 2019 and date > crossups[0], BTC_SMA45_CROSSDOWNS))

@@ -1,6 +1,60 @@
 import unittest
-from mega_money_millions.portfolio import Portfolio, InsufficientFunds, InsufficientShares
+import numpy as np
+from mega_money_millions.portfolio import Portfolio, Inventory, InventoryEntry, InsufficientFunds, InsufficentInventory, InsufficientShares
 from mega_money_millions.exchange import FreeExchange, Coinbase
+
+
+class TestInventory(unittest.TestCase):
+  def setUp(self):
+    self.inventory = Inventory()
+
+  def test_add(self):
+    self.inventory.add('BTC', 0.125, 40000)
+    self.inventory.add('ETH', 0.75, 5000)
+
+    self.assertEqual(0.125, self.inventory.quantity('BTC'))
+    self.assertEqual(0.75, self.inventory.quantity('ETH'))
+
+    self.inventory.add('BTC', 1, 41000)
+
+    self.assertEqual(1.125, self.inventory.quantity('BTC'))
+
+    self.assertEqual(self.inventory.inventory['BTC'], [
+      InventoryEntry('BTC', 0.125, 40000),
+      InventoryEntry('BTC', 1, 41000)
+    ])
+
+  def test_remove(self):
+    self.inventory.add('BTC', 0.125, 40000)
+    removed = self.inventory.remove('BTC', 0.125)
+
+    self.assertEqual([InventoryEntry('BTC', 0.125, 40000)], removed)
+    self.assertEqual([], self.inventory.inventory['BTC'])
+
+    with self.assertRaises(InsufficentInventory):
+      self.inventory.remove('BTC', 0.01)
+
+    self.inventory.add('BTC', 2, 40000)
+    self.inventory.add('BTC', 1, 45000)
+
+    removed = self.inventory.remove('BTC', 1)
+
+    self.assertEqual(removed, [InventoryEntry('BTC', 1, 40000)])
+
+    expected = [
+      InventoryEntry('BTC', 1, 40000),
+      InventoryEntry('BTC', 1, 45000)
+    ]
+
+    self.assertEqual(self.inventory.inventory['BTC'], expected)
+
+    with self.assertRaises(InsufficentInventory):
+      self.inventory.remove('BTC', 3)
+
+    removed = self.inventory.remove('BTC', 2)
+
+    self.assertEqual(removed, expected)
+    self.assertEqual(self.inventory.inventory['BTC'], [])
 
 
 class TestPortfolio(unittest.TestCase):
@@ -11,7 +65,8 @@ class TestPortfolio(unittest.TestCase):
   def test_buy(self):
     self.portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
 
-    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 0, 5000), tuple(self.portfolio.positions.loc[0]))
+    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 0, -5000, None, 5000),
+                     tuple(self.portfolio.transactions.loc[0]))
     self.assertEqual(self.portfolio.cash(), 5000)
 
     with self.assertRaises(InsufficientFunds):
@@ -19,7 +74,7 @@ class TestPortfolio(unittest.TestCase):
 
     self.portfolio.buy('ETH', '2023-12-24', 5000, 0.75)
 
-    self.assertEqual(('2023-12-24', 'ETH', 5000, 0.75, 3750, 0, 1250), tuple(self.portfolio.positions.loc[1]))
+    self.assertEqual(('2023-12-24', 'ETH', 5000, 0.75, 3750, 0, -3750, None, 1250), tuple(self.portfolio.transactions.loc[1]))
     self.assertEqual(self.portfolio.cash(), 1250)
 
   def test_buy_with_percentage_of_cash(self):
@@ -27,13 +82,16 @@ class TestPortfolio(unittest.TestCase):
       self.portfolio.buy('BTC', '2023-12-23', 40000, percentage_of_cash=50, quantity=0.125)
 
     self.portfolio.buy('BTC', '2023-12-23', 40000, percentage_of_cash=50)
-    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 0, 5000), tuple(self.portfolio.positions.iloc[-1]))
+    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 0, -5000, None, 5000),
+                     tuple(self.portfolio.transactions.iloc[-1]))
 
     self.portfolio.buy('BTC', '2023-12-24', 40000, percentage_of_cash=50)
-    self.assertEqual(('2023-12-24', 'BTC', 40000, 0.0625, 2500, 0, 2500), tuple(self.portfolio.positions.iloc[-1]))
+    self.assertEqual(('2023-12-24', 'BTC', 40000, 0.0625, 2500, 0, -2500, None, 2500),
+                     tuple(self.portfolio.transactions.iloc[-1]))
 
     self.portfolio.buy('BTC', '2023-12-25', 40000, percentage_of_cash=100)
-    self.assertEqual(('2023-12-25', 'BTC', 40000, 0.0625, 2500, 0, 0), tuple(self.portfolio.positions.iloc[-1]))
+    self.assertEqual(('2023-12-25', 'BTC', 40000, 0.0625, 2500, 0, -2500, None, 0),
+                     tuple(self.portfolio.transactions.iloc[-1]))
 
     with self.assertRaises(InsufficientFunds):
       self.portfolio.buy('BTC', '2023-12-26', 40000, percentage_of_cash=100)
@@ -51,8 +109,8 @@ class TestPortfolio(unittest.TestCase):
   def test_coinbase_buy(self):
     self.coinbase_portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
 
-    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 30, 4970),
-                     tuple(self.coinbase_portfolio.positions.loc[0]))
+    self.assertEqual(('2023-12-23', 'BTC', 40000, 0.125, 5000, 30, -5030, None, 4970),
+                     tuple(self.coinbase_portfolio.transactions.loc[0]))
     self.assertEqual(self.coinbase_portfolio.cash(), 4970)
 
     with self.assertRaises(InsufficientFunds):
@@ -60,8 +118,8 @@ class TestPortfolio(unittest.TestCase):
 
     self.coinbase_portfolio.buy('ETH', '2023-12-24', 5000, 0.75)
 
-    self.assertEqual(('2023-12-24', 'ETH', 5000, 0.75, 3750, 22.5, 1197.5),
-                     tuple(self.coinbase_portfolio.positions.loc[1]))
+    self.assertEqual(('2023-12-24', 'ETH', 5000, 0.75, 3750, 22.5, -3772.5, None, 1197.5),
+                     tuple(self.coinbase_portfolio.transactions.loc[1]))
     self.assertEqual(self.coinbase_portfolio.cash(), 1197.5)
 
   def test_quantity_owned(self):
@@ -90,11 +148,13 @@ class TestPortfolio(unittest.TestCase):
       self.portfolio.sell('BTC', '2023-12-23', 40000, percentage_of_shares=50, quantity=0.125)
 
     self.portfolio.sell('BTC', '2023-12-24', 40000, percentage_of_shares=50)
-    self.assertEqual(('2023-12-24', 'BTC', 40000, -0.0625, 2500, 0, 7500), tuple(self.portfolio.positions.iloc[-1]))
+    self.assertEqual(('2023-12-24', 'BTC', 40000, -0.0625, 2500, 0, 2500, None, 7500),
+                     tuple(self.portfolio.transactions.iloc[-1]))
     self.assertEqual(self.portfolio.cash(), 7500)
 
     self.portfolio.sell('BTC', '2023-12-25', 40000, percentage_of_shares=100)
-    self.assertEqual(('2023-12-25', 'BTC', 40000, -0.0625, 2500, 0, 10000), tuple(self.portfolio.positions.iloc[-1]))
+    self.assertEqual(('2023-12-25', 'BTC', 40000, -0.0625, 2500, 0, 2500, None, 10000),
+                     tuple(self.portfolio.transactions.iloc[-1]))
     self.assertEqual(self.portfolio.cash(), 10000)
 
   def test_coinbase_sell(self):
@@ -110,13 +170,126 @@ class TestPortfolio(unittest.TestCase):
 
     self.assertEqual(self.coinbase_portfolio.cash(), 7543.25)
 
-  def test_max_gain(self):
-    self.portfolio.initial_cash = 10000000
+  def test_buys_and_sells(self):
+    self.coinbase_portfolio.buy('BTC', '2023-12-23', 35000, 0.1125)
+    self.coinbase_portfolio.buy('BTC', '2023-12-24', 40000, 0.1125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-25', 41000, 0.1125)
+    self.coinbase_portfolio.buy('BTC', '2023-12-26', 40500, 0.1125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-27', 42000, 0.1125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-28', 43000, 0.1125)
 
-    self.portfolio.buy('BTC', '2023-12-23', 50000, 0.25)
-    self.portfolio.sell('BTC', '2023-12-24', 25000, 0.125)
-    self.portfolio.sell('BTC', '2023-12-24', 25000, 0.124)
-    self.portfolio.buy('BTC', '2023-12-25', 50000, 0.25)
-    self.portfolio.sell('BTC', '2023-12-26', 12500, 0.125)
+    buys = self.coinbase_portfolio.buys()
 
-    self.assertEqual(self.portfolio.max_gain(), 2812.5)
+    self.assertEqual([
+      (0, ['2023-12-23', 'BTC', 35000, 0.1125, 3937.5, 23.625, -3961.125, None, 6038.875]),
+      (1, ['2023-12-24', 'BTC', 40000, 0.1125, 4500.0, 27.0, -4527.0, None, 1511.875]),
+      (3, ['2023-12-26', 'BTC', 40500, 0.1125, 4556.25, 27.3375, -4583.5875, None, 1513.1125]),
+    ], list(zip(buys.index, buys.values.tolist())))
+
+    sells = self.coinbase_portfolio.sells()
+
+    self.assertEqual([
+      (2, ['2023-12-25', 'BTC', 41000, -0.1125, 4612.5, 27.675, 4584.825, None, 6096.7]),
+      (4, ['2023-12-27', 'BTC', 42000, -0.1125, 4725.0, 28.35, 4696.65, None, 6209.7625]),
+      (5, ['2023-12-28', 'BTC', 43000, -0.1125, 4837.5, 29.025, 4808.475, None, 11018.2375]),
+    ], list(zip(sells.index, sells.values.tolist())))
+
+    self.coinbase_portfolio.buy('ETH', '2023-12-28', 5000, 1)
+    self.coinbase_portfolio.sell('ETH', '2023-12-29', 6000, 1)
+
+    buys = self.coinbase_portfolio.buys()
+
+    self.assertEqual([
+      (0, ['2023-12-23', 'BTC', 35000, 0.1125, 3937.5, 23.625, -3961.125, None, 6038.875]),
+      (1, ['2023-12-24', 'BTC', 40000, 0.1125, 4500.0, 27.0, -4527.0, None, 1511.875]),
+      (3, ['2023-12-26', 'BTC', 40500, 0.1125, 4556.25, 27.3375, -4583.5875, None, 1513.1125]),
+      (6, ['2023-12-28', 'ETH', 5000, 1.0, 5000.0, 30.0, -5030.0, None, 5988.2375]),
+    ], list(zip(buys.index, buys.values.tolist())))
+
+    eth_buys = self.coinbase_portfolio.buys('ETH')
+
+    self.assertEqual([
+      (6, ['2023-12-28', 'ETH', 5000, 1.0, 5000.0, 30.0, -5030.0, None, 5988.2375])
+    ], list(zip(eth_buys.index, eth_buys.values.tolist())))
+
+    sells = self.coinbase_portfolio.sells()
+
+    self.assertEqual([
+      (2, ['2023-12-25', 'BTC', 41000, -0.1125, 4612.5, 27.675, 4584.825, None, 6096.7]),
+      (4, ['2023-12-27', 'BTC', 42000, -0.1125, 4725.0, 28.35, 4696.65, None, 6209.7625]),
+      (5, ['2023-12-28', 'BTC', 43000, -0.1125, 4837.5, 29.025, 4808.475, None, 11018.2375]),
+      (7, ['2023-12-29', 'ETH', 6000, -1.0, 6000.0, 36.0, 5964.0, None, 11952.2375])
+    ], list(zip(sells.index, sells.values.tolist())))
+
+    sells_eth = self.coinbase_portfolio.sells('ETH')
+
+    self.assertEqual([
+      (7, ['2023-12-29', 'ETH', 6000, -1.0, 6000.0, 36.0, 5964.0, None, 11952.2375]),
+    ], list(zip(sells_eth.index, sells_eth.values.tolist())))
+
+  def test_net_performance(self):
+    self.coinbase_portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-24', 45000, 0.125)
+
+    self.assertEqual(5.6125, self.coinbase_portfolio.net_performance())
+
+    self.coinbase_portfolio.buy('BTC', '2023-12-25', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-26', 35000, 0.125)
+
+    self.assertEqual(-1.2, self.coinbase_portfolio.net_performance())
+
+  def test_reset(self):
+    self.coinbase_portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-24', 45000, 0.125)
+
+    self.coinbase_portfolio.reset()
+
+    self.assertEqual(10000, self.coinbase_portfolio.cash())
+    self.assertEqual(0, len(self.coinbase_portfolio.transactions))
+
+  def test_avg_purchase_price(self):
+    self.coinbase_portfolio.buy('BTC', '2023-12-23', 30000, 0.125)
+    self.coinbase_portfolio.buy('BTC', '2023-12-24', 35000, 0.125)
+
+    self.assertEqual(32500, self.coinbase_portfolio.avg_purchase_price('BTC'))
+    self.assertEqual(32524.375, self.coinbase_portfolio.avg_purchase_price('BTC', include_fees=True))
+
+    self.coinbase_portfolio.sell('BTC', '2023-12-25', 40000, 0.25)
+
+    self.assertEqual(0, self.coinbase_portfolio.avg_purchase_price('BTC'))
+    self.assertEqual(0, self.coinbase_portfolio.avg_purchase_price('BTC', include_fees=True))
+
+    self.coinbase_portfolio.buy('BTC', '2023-12-26', 40000, 0.25)
+
+    self.assertEqual(40000, self.coinbase_portfolio.avg_purchase_price('BTC'))
+    self.assertEqual(40060.0, self.coinbase_portfolio.avg_purchase_price('BTC', include_fees=True))
+
+    self.coinbase_portfolio.sell('BTC', '2023-12-27', 45000, 0.125)
+
+    self.assertEqual(40000, self.coinbase_portfolio.avg_purchase_price('BTC'))
+    self.assertEqual(40060.0, self.coinbase_portfolio.avg_purchase_price('BTC', include_fees=True))
+
+  def test_wins_and_losses(self):
+    self.skipTest("Need to figure out entry price first")
+    self.coinbase_portfolio.initial_cash = 50000
+
+    self.coinbase_portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-24', 45000, 0.125)
+    self.coinbase_portfolio.buy('BTC', '2023-12-25', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-26', 35000, 0.125)
+    self.coinbase_portfolio.buy('BTC', '2023-12-27', 40000, 0.125)
+    self.coinbase_portfolio.sell('BTC', '2023-12-28', 46000, 0.125)
+
+    wins = self.coinbase_portfolio.wins()
+
+    self.assertEqual([
+      (1, ['2023-12-24', 'BTC', 45000, -0.125, 5625.0, 33.75, 5591.25, 50561.25]),
+      (3, ['2023-12-26', 'BTC', 35000, -0.125, 4375.0, 26.25, 4348.75, 49880.0]),
+      (5, ['2023-12-28', 'BTC', 46000, -0.125, 5750.0, 34.5, 5715.5, 50565.5])],
+      list(zip(wins.index, wins.values.tolist())))
+
+    losses = self.coinbase_portfolio.losses()
+
+    self.assertEqual([
+      (4, ['2023-12-27', 'BTC', 40000, 0.125, 5000.0, 30.0, -5030.0, 4850.0])],
+      list(zip(losses.index, losses.values.tolist())))
