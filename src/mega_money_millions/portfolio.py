@@ -34,6 +34,7 @@ class Portfolio:
       'fee',
       'cash_delta',
       'gain', # Will be 0 for buys
+      'streak', # Will be 0 for buys
       'cash']
 
   def __init__(self, exchange: Exchange, initial_cash: float):
@@ -62,7 +63,7 @@ class Portfolio:
     cash = round(cash + cash_delta, Portfolio.ROUND_TO)
 
     # TODO: is there a better value than 0 for gain for buys?
-    self.transactions.loc[len(self.transactions)] = [date, ticker, price, quantity, cost, fee, cash_delta, 0.0, cash]
+    self.transactions.loc[len(self.transactions)] = [date, ticker, price, quantity, cost, fee, cash_delta, 0.0, 0, cash]
 
   def sell(self, ticker: str, date: str, price: float, quantity: float = None, percentage_of_shares: float = None):
     if quantity is None and percentage_of_shares is None or quantity is not None and percentage_of_shares is not None:
@@ -88,9 +89,21 @@ class Portfolio:
     avg_purchase_price = self.avg_purchase_price(ticker, include_fees=True)
 
     gain = round(cash_delta - (avg_purchase_price * quantity), Portfolio.ROUND_TO)
+    sells = self.sells(ticker)
+
+    if len(sells) > 0:
+      previous_sell = sells.iloc[-1]
+      div_safe_gain = gain if gain != 0 else 1 # To prevent divide by zero errors
+      # If the gains signs differ, we went from a loss to a win or vice versa
+      if previous_sell is None or previous_sell['gain'] / div_safe_gain < 0:
+        streak = 1
+      else:
+        streak = previous_sell['streak'] + 1
+    else:
+      streak = 1
 
     self.transactions.loc[len(self.transactions)] = [date, ticker, price, -quantity,
-                                                     cost, fee, cash_delta, gain, cash]
+                                                     cost, fee, cash_delta, gain, streak, cash]
 
   def quantity_owned(self, ticker: str) -> float:
     transactions = self.transactions.loc[self.transactions['ticker'] == ticker]
