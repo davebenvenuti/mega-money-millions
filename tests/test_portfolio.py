@@ -217,7 +217,6 @@ class TestPortfolio(unittest.TestCase):
     self.assertEqual(40060.0, self.coinbase_portfolio.avg_purchase_price('BTC', include_fees=True))
 
   def test_wins_and_losses(self):
-    self.skipTest("Need to figure out entry price first")
     self.coinbase_portfolio.initial_cash = 50000
 
     self.coinbase_portfolio.buy('BTC', '2023-12-23', 40000, 0.125)
@@ -230,13 +229,12 @@ class TestPortfolio(unittest.TestCase):
     wins = self.coinbase_portfolio.wins()
 
     self.assertEqual([
-      (1, ['2023-12-24', 'BTC', 45000, -0.125, 5625.0, 33.75, 5591.25, 50561.25]),
-      (3, ['2023-12-26', 'BTC', 35000, -0.125, 4375.0, 26.25, 4348.75, 49880.0]),
-      (5, ['2023-12-28', 'BTC', 46000, -0.125, 5750.0, 34.5, 5715.5, 50565.5])],
+      (1, ['2023-12-24', 'BTC', 45000, -0.125, 5625.0, 33.75, 5591.25, 587.5, 50561.25]),
+      (5, ['2023-12-28', 'BTC', 46000, -0.125, 5750.0, 34.5, 5715.5, 711.75, 50565.5])],
       list(zip(wins.index, wins.values.tolist())))
 
     losses = self.coinbase_portfolio.losses()
 
     self.assertEqual([
-      (4, ['2023-12-27', 'BTC', 40000, 0.125, 5000.0, 30.0, -5030.0, 4850.0])],
+      (3, ['2023-12-26', 'BTC', 35000, -0.125, 4375.0, 26.25, 4348.75, -655.0, 49880])],
       list(zip(losses.index, losses.values.tolist())))

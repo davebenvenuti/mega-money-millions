@@ -195,12 +195,12 @@ class Portfolio:
   def wins(self) -> pd.DataFrame:
     sells = self.sells()
 
-    return sells.loc[sells['cash_delta'] > 0]
+    return sells.loc[sells['gain'] >= 0]
 
   def losses(self) -> pd.DataFrame:
     sells = self.sells()
 
-    return sells.loc[sells['cash_delta'] < 0]
+    return sells.loc[sells['gain'] < 0]
 
   def avg_win_streak(self) -> float:
     pass
