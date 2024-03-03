@@ -22,77 +22,6 @@ def weighed_average(df, column, weight_column):
   return (df[column] * df[weight_column]).sum() / df[weight_column].sum()
 
 
-class InsufficentInventory(Exception):
-  def __init__(self, ticker: str, desired_quantity: float, total: float):
-    super().__init__(f"Cannot remove {desired_quantity} of {ticker}: only {total} shares owned")
-
-
-class InventoryEntry:
-  def __init__(self, ticker: str, quantity: float, price: float, removed: bool = False):
-    self.ticker = ticker
-    self.quantity = quantity
-    self.price = price
-    self.removed = removed
-
-  def __eq__(self, other: any) -> bool:
-    if not isinstance(other, InventoryEntry):
-      return False
-    if self.ticker != other.ticker:
-      return False
-    if self.quantity != other.quantity:
-      return False
-
-    return self.price == other.price
-
-  def weighted_average(entries: list) -> float:
-    return sum(map(lambda item: item.quantity * item.price, entries)) / sum(map(lambda item: item.quantity, entries))
-
-
-class Inventory:
-  def __init__(self):
-    self.inventory: defaultdict[str, list[InventoryEntry]] = defaultdict(list)
-    self.counts: dict[str, int] = {}
-
-  def quantity(self, ticker: str) -> float:
-    return self.counts.get(ticker, 0)
-
-  def add(self, ticker: str, quantity: float, price: float):
-    # Cronological order is important; sales should be FIFO
-    self.inventory[ticker].append(InventoryEntry(ticker, quantity, price))
-    self.counts[ticker] = self.counts.get(ticker, 0) + quantity
-
-  def remove(self, ticker: str, quantity: float) -> list[InventoryEntry]:
-    if quantity > self.quantity(ticker):
-      raise InsufficentInventory(ticker, quantity, self.quantity(ticker))
-
-    quantity_accounted_for = 0
-
-    removed = []
-
-    for entry in self.inventory[ticker]:
-      remainder = quantity - quantity_accounted_for
-
-      if entry.quantity <= remainder:
-        removed.append(entry)
-        entry.removed = True
-      else:
-        removed.append(InventoryEntry(entry.ticker, remainder, entry.price))
-        entry.quantity -= remainder
-
-      quantity_accounted_for += removed[-1].quantity
-
-      if quantity_accounted_for == quantity:
-        break
-
-    self.counts[ticker] -= quantity
-
-    assert quantity_accounted_for == quantity, f"{quantity_accounted_for} != {quantity}"
-
-    self.inventory[ticker] = list(filter(lambda item: not item.removed, self.inventory[ticker]))
-
-    return removed
-
-
 class Portfolio:
   ROUND_TO: int = 4
   # purchase_price will only be present for sells
@@ -104,7 +33,7 @@ class Portfolio:
       'cost',
       'fee',
       'cash_delta',
-      'gain', # None for buys.  TODO: it's also currently None for sells but shouldn't be
+      'gain', # Will be 0 for buys
       'cash']
 
   def __init__(self, exchange: Exchange, initial_cash: float):
@@ -112,8 +41,6 @@ class Portfolio:
     self.exchange: str = exchange
     # cost does NOT include fee
     self.transactions: pd.DataFrame = pd.DataFrame(columns=Portfolio.TRANSACTIONS_COLUMNS)
-    # Iterating over DataFrames is slow so we should use our own Inventory class
-    self.inventory: Inventory = Inventory()
 
   def buy(self, ticker: str, date: str, price: float, quantity: float = None, percentage_of_cash: float = None):
     if quantity is None and percentage_of_cash is None or quantity is not None and percentage_of_cash is not None:
@@ -134,8 +61,8 @@ class Portfolio:
     # This is a little confusing - cash_delta should be negative.  But it makes sense for consistency's sake.
     cash = round(cash + cash_delta, Portfolio.ROUND_TO)
 
-    self.transactions.loc[len(self.transactions)] = [date, ticker, price, quantity, cost, fee, cash_delta, None, cash]
-    self.inventory.add(ticker, quantity, price)
+    # TODO: is there a better value than 0 for gain for buys?
+    self.transactions.loc[len(self.transactions)] = [date, ticker, price, quantity, cost, fee, cash_delta, 0.0, cash]
 
   def sell(self, ticker: str, date: str, price: float, quantity: float = None, percentage_of_shares: float = None):
     if quantity is None and percentage_of_shares is None or quantity is not None and percentage_of_shares is not None:
@@ -158,13 +85,12 @@ class Portfolio:
 
     cash = round(cash + cash_delta, Portfolio.ROUND_TO)
 
-    # removed = self.inventory.remove(ticker, quantity)
-    # avg_purchase_price = InventoryEntry.weighted_average(removed)
+    avg_purchase_price = self.avg_purchase_price(ticker, include_fees=True)
 
-    # avg_purchase_price = self.determine_avg_purchase_price(ticker, quantity)
+    gain = round(cash_delta - (avg_purchase_price * quantity), Portfolio.ROUND_TO)
 
     self.transactions.loc[len(self.transactions)] = [date, ticker, price, -quantity,
-                                                     cost, fee, cash_delta, None, cash]
+                                                     cost, fee, cash_delta, gain, cash]
 
   def quantity_owned(self, ticker: str) -> float:
     transactions = self.transactions.loc[self.transactions['ticker'] == ticker]
