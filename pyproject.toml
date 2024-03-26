@@ -11,7 +11,7 @@ description = "A trading backtesting framework"
 name = "mega_money_millions"
 readme = "README.md"
 requires = ["pandas >=2.1.4"]
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 version = "0.0.1"
 
 [project.urls]
