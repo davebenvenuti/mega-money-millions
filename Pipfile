@@ -10,6 +10,7 @@ pylint = "*"
 
 [dev-packages]
 autopep8 = "*"
+hatchling = "*"
 pylint = "*"
 
 [requires]
