@@ -11,6 +11,8 @@ sys.path.append(SOURCE_PATH)
 
 BTC_PICKLE_PATH = join(PROJECT_PATH, 'tests/BTC.pickle')
 ETH_PICKLE_PATH = join(PROJECT_PATH, 'tests/ETH.pickle')
+XRP_PICKLE_PATH = join(PROJECT_PATH, 'tests/XRP.pickle')
+SHIB_PICKLE_PATH = join(PROJECT_PATH, 'tests/SHIB.pickle')
 
 
 def load_btc_pickle():
